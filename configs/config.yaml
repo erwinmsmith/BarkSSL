@@ -1,0 +1,107 @@
+# BarkSSL Configuration
+# Project metadata
+project:
+  name: BarkSSL
+  version: 0.1.0
+  description: "Metadata-Free Canine Vocal Representation Learning for Dog Bark Emotion Recognition"
+
+# Device settings
+device:
+  cuda_if_available: true  # If false, always use CPU
+  num_workers: 4
+
+# Data paths and settings
+data:
+  dogspeak_root: data/dogspeak/dogspeak_released
+  dogspeak_metadata: data/dogspeak/metadata.csv
+  emotion_root: data/emotion
+
+  # Audio preprocessing
+  target_sr: 16000  # Target sampling rate (Hz)
+  target_duration: 4.0  # Target audio duration (seconds)
+  n_fft: 400  # FFT window size (25ms @ 16kHz)
+  hop_length: 160  # Hop length (10ms @ 16kHz)
+  n_mels: 80  # Number of mel filter banks
+  n_mfcc: 40  # Number of MFCCs for acoustic unit discovery
+
+  # Emotion labels
+  emotion_labels:
+    - angry
+    - anxious
+    - happy
+    - lonely
+    - sad
+  num_classes: 5
+
+# Model architecture
+model:
+  scale: small  # small | medium
+
+  # Small model (~30M parameters)
+  small:
+    hidden_dim: 384
+    num_layers: 6
+    num_heads: 6
+    intermediate_size: 1536
+    dropout: 0.1
+    layer_norm_eps: 1e-12
+
+  # Medium model (~95M parameters)
+  medium:
+    hidden_dim: 768
+    num_layers: 12
+    num_heads: 12
+    intermediate_size: 3072
+    dropout: 0.1
+    layer_norm_eps: 1e-12
+
+  # Shared parameters
+  kmeans_k: 100  # Number of acoustic units for clustering
+  mask_prob: 0.075  # Mask probability for masked prediction
+  mask_span: 10  # Mask span length in frames
+  feature_dim: 80  # Input feature dimension (mel bins)
+
+# Training settings
+training:
+  pretrain_epochs: 50
+  finetune_epochs: 30
+
+  # Optimizer
+  learning_rate: 0.0001
+  weight_decay: 0.01
+  gradient_clip: 1.0
+  warmup_steps: 1000
+
+  # Batch sizes
+  pretrain_batch_size: 32
+  finetune_batch_size: 16
+
+  # Loss weights
+  supcon_lambda: 0.1  # Weight for supervised contrastive loss
+  supcon_temperature: 0.07
+
+  # Learning rate scheduler
+  scheduler: cosine  # cosine | linear | none
+  min_lr: 1e-6
+
+  # Data augmentation
+  use_denoising: true
+  use_augmentation: true
+
+# Paths
+paths:
+  checkpoint_dir: checkpoints
+  log_dir: logs
+  kmeans_model: checkpoints/kmeans_100.pkl
+  pretrained_encoder: checkpoints/canine_encoder.pt
+  best_model: checkpoints/best_model.pt
+
+# Logging
+logging:
+  log_interval: 100
+  eval_interval: 1000
+  save_interval: 5000
+  tensorboard: true
+
+# Random seed
+seed: 42
