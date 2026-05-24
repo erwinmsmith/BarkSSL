@@ -104,6 +104,7 @@ class MaskedPretraining:
         encoder: CanineEncoder,
         masking: Optional[Masking] = None,
         use_denoising: bool = False,
+        acoustic_unit: Optional[Any] = None,
     ):
         """
         Initialize masked pretraining.
@@ -112,10 +113,12 @@ class MaskedPretraining:
             encoder: Canine encoder model
             masking: Masking strategy
             use_denoising: Whether to use WavLM-style denoising
+            acoustic_unit: Optional acoustic unit discovery for on-the-fly pseudo-labels
         """
         self.encoder = encoder
         self.masking = masking or Masking()
         self.use_denoising = use_denoising
+        self.acoustic_unit = acoustic_unit
 
         # Denoising transform
         self.denoising_transform = BarkDenoising() if use_denoising else None
@@ -180,6 +183,28 @@ class MaskedPretraining:
         encoder_output = self.encoder(waveform)
         hidden_states = encoder_output['hidden_states']
 
+        # Generate pseudo-labels if not provided (on-the-fly)
+        if pseudo_labels is None and self.acoustic_unit is not None:
+            # Generate pseudo-labels from acoustic unit
+            batch_size, seq_len, _ = hidden_states.shape
+            pseudo_labels = []
+            for i in range(batch_size):
+                wave = waveform[i].cpu().numpy()
+                labels = self.acoustic_unit.predict(wave)
+                # Map mel-feature frames to CNN frames
+                # mel frame stride = 160 samples, CNN frame stride = 40 samples
+                # CNN frames = mel_frames * 4
+                labels = np.repeat(labels, 4)[:seq_len]
+                pseudo_labels.append(labels)
+            pseudo_labels = torch.LongTensor(np.array(pseudo_labels)).to(hidden_states.device)
+        elif pseudo_labels is None:
+            # Skip loss computation if no pseudo-labels and no acoustic unit
+            return {
+                'loss': torch.tensor(0.0, device=hidden_states.device),
+                'metrics': {'loss': 0.0, 'skipped': True},
+                'hidden_states': hidden_states,
+            }
+
         # Apply masking
         masked_hidden, mask_positions, target_labels = self.masking.mask(
             hidden_states, pseudo_labels
@@ -243,6 +268,7 @@ class CanineHuBERTPretraining:
             encoder=encoder,
             masking=Masking(mask_prob=mask_prob, mask_span=mask_span),
             use_denoising=use_denoising,
+            acoustic_unit=acoustic_unit_discovery,
         )
 
     def generate_pseudo_labels(
@@ -315,6 +341,65 @@ class CanineHuBERTPretraining:
         checkpoint = torch.load(path, map_location='cpu')
 
         self.encoder.load_state_dict(checkpoint['encoder_state_dict'])
+
+    def to(self, device: torch.device) -> 'CanineHuBERTPretraining':
+        """Move model to device."""
+        self.encoder.to(device)
+        return self
+
+    def parameters(self):
+        """Return encoder parameters for optimizer."""
+        return self.encoder.parameters()
+
+    def train(self, mode: bool = True) -> 'CanineHuBERTPretraining':
+        """Set train/eval mode."""
+        self.encoder.train(mode)
+        return self
+
+    def eval(self) -> 'CanineHuBERTPretraining':
+        """Set eval mode."""
+        return self.train(False)
+
+    def train_step(self, batch: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Single training step.
+
+        Args:
+            batch: Dictionary with 'waveform' and 'pseudo_labels'
+
+        Returns:
+            Dictionary with loss and metrics
+        """
+        waveform = batch['waveform']
+        # Handle batch of variable-length waveforms (list format)
+        if isinstance(waveform, list):
+            # Find max length
+            max_len = max(len(w) for w in waveform)
+            # Pad all to max_len (CNN will handle alignment internally)
+            padded = []
+            for w in waveform:
+                if len(w) < max_len:
+                    w_padded = np.pad(w, (0, max_len - len(w)), mode='constant')
+                else:
+                    w_padded = w[:max_len]
+                padded.append(w_padded)
+            waveform = np.vstack(padded)
+            waveform = torch.from_numpy(waveform).float()
+        elif isinstance(waveform, np.ndarray):
+            waveform = torch.from_numpy(waveform).float()
+
+        pseudo_labels = batch.get('pseudo_labels')
+
+        # Ensure waveform is 2D
+        if waveform.dim() == 1:
+            waveform = waveform.unsqueeze(0)
+        if pseudo_labels is not None and pseudo_labels.dim() == 1:
+            pseudo_labels = pseudo_labels.unsqueeze(0)
+
+        # Forward step
+        output = self.masked_pretraining.forward_step(waveform, pseudo_labels)
+
+        return output
 
 
 def create_masked_pretraining(

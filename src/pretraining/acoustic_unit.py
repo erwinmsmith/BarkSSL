@@ -106,7 +106,7 @@ class AcousticUnitDiscovery:
 
     def fit(
         self,
-        file_paths: List[str],
+        dataset_or_paths,
         max_samples: Optional[int] = None,
         progress_callback: Optional[callable] = None,
     ) -> 'AcousticUnitDiscovery':
@@ -114,13 +114,19 @@ class AcousticUnitDiscovery:
         Fit k-means model on audio files.
 
         Args:
-            file_paths: List of audio file paths
+            dataset_or_paths: List of audio file paths or dataset with file_paths attribute
             max_samples: Maximum number of files to process
             progress_callback: Optional callback for progress updates
 
         Returns:
             Self for chaining
         """
+        # Support both file paths list and dataset with file_paths attribute
+        if hasattr(dataset_or_paths, 'file_paths'):
+            file_paths = dataset_or_paths.file_paths
+        else:
+            file_paths = list(dataset_or_paths)
+
         if max_samples:
             file_paths = file_paths[:max_samples]
 
@@ -129,6 +135,9 @@ class AcousticUnitDiscovery:
 
         for i, filepath in enumerate(file_paths):
             try:
+                # Convert Path objects to strings
+                filepath = str(filepath)
+
                 # Load audio
                 waveform, sr = librosa.load(filepath, sr=self.sample_rate, mono=True)
 
