@@ -103,6 +103,15 @@ Key parameters:
 - `--num-workers`: Data loading workers per GPU
 - `--max-length`: Max audio length in seconds (default: 10s, prevents OOM)
 
+### TensorBoard Logging
+
+Training metrics are logged to TensorBoard (if available):
+
+```bash
+# View logs
+tensorboard --logdir outputs/pretrain/tensorboard
+```
+
 ### 3. Downstream Emotion Classification Training (Stage 3)
 
 Fine-tune the pretrained encoder on DogEmotionSound:
