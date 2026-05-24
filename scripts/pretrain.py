@@ -58,6 +58,8 @@ def parse_args():
                        help='DogSpeak preprocessed data directory')
     parser.add_argument('--max-samples', type=int, default=None,
                        help='Max samples for debugging (None for all)')
+    parser.add_argument('--max-length', type=float, default=10.0,
+                       help='Max audio length in seconds (default: 10s)')
 
     # Training
     parser.add_argument('--batch-size', type=int, default=32,
@@ -98,17 +100,23 @@ def parse_args():
     return parser.parse_args()
 
 
-def collate_variable_length(batch):
-    """Collate function for variable-length DogSpeak samples."""
-    waveforms = [b['waveform'] for b in batch]
-    paths = [b['path'] for b in batch]
-    lengths = [len(w) for w in waveforms]
+def collate_variable_length(batch, max_samples=None):
+    """Collate function for variable-length DogSpeak samples with length limit."""
+    max_len = max_samples or max(len(b['waveform']) for b in batch)
+
+    waveforms = []
+    for b in batch:
+        w = b['waveform']
+        # Truncate if too long
+        if len(w) > max_len:
+            w = w[:max_len]
+        waveforms.append(w)
 
     return {
         'waveform': waveforms,
         'waveforms': waveforms,
-        'path': paths,
-        'length': lengths,
+        'path': [b['path'] for b in batch],
+        'length': [len(w) for w in waveforms],
     }
 
 
@@ -249,19 +257,23 @@ def train_worker(rank, world_size, args, output_dir, checkpoint_dir):
         shuffle=True,
     ) if world_size > 1 else None
 
+    # Max samples per audio (based on --max-length)
+    max_samples_per_audio = int(args.max_length * 16000) if args.max_length else None
+
     dataloader = torch.utils.data.DataLoader(
         dataset,
         batch_size=args.batch_size,
         shuffle=(sampler is None),
         sampler=sampler,
         num_workers=args.num_workers,
-        collate_fn=collate_variable_length,
+        collate_fn=lambda b: collate_variable_length(b, max_samples_per_audio),
         pin_memory=True,
     )
 
     if is_main:
         logger.info(f"Dataset size: {len(dataset)}")
         logger.info(f"Batch size per GPU: {args.batch_size}")
+        logger.info(f"Max audio length: {args.max_length}s")
         logger.info(f"Effective batch size: {args.batch_size * world_size}")
         logger.info(f"Steps per epoch: {len(dataloader)}")
 
@@ -403,17 +415,20 @@ def main():
             max_samples=args.max_samples,
         )
 
+        max_samples_per_audio = int(args.max_length * 16000) if args.max_length else None
+
         dataloader = torch.utils.data.DataLoader(
             dataset,
             batch_size=args.batch_size,
             shuffle=True,
             num_workers=args.num_workers,
-            collate_fn=collate_variable_length,
+            collate_fn=lambda b: collate_variable_length(b, max_samples_per_audio),
             pin_memory=True,
         )
 
         logger.info(f"Dataset size: {len(dataset)}")
         logger.info(f"Batch size: {args.batch_size}")
+        logger.info(f"Max audio length: {args.max_length}s")
         logger.info(f"Steps per epoch: {len(dataloader)}")
 
         config = {
