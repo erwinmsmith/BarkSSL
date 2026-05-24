@@ -80,12 +80,27 @@ python main.py test --test all
 Pretrain the canine encoder on DogSpeak dataset:
 
 ```bash
-python main.py pretrain --config configs/config.yaml --epochs 50
+# Single GPU / CPU
+python scripts/pretrain.py \
+    --scale small \
+    --batch-size 32 \
+    --epochs 100
+
+# Multi-GPU (recommended for faster training)
+torchrun --nproc_per_node=4 scripts/pretrain.py \
+    --scale small \
+    --batch-size 64 \
+    --epochs 100
 ```
 
-Optional overrides:
-- `--batch-size`: Batch size (default: from config)
+**Note**: `--batch-size` is per-GPU. With 4 GPUs and batch-size=64, effective batch size = 256.
+
+Key parameters:
+- `--scale`: Model scale (tiny/small/base/large)
+- `--kmeans-k`: Number of acoustic units (default: 100)
+- `--mask-prob`: Mask probability (default: 0.075)
 - `--lr`: Learning rate (default: 0.0001)
+- `--num-workers`: Data loading workers per GPU
 
 ### 3. Downstream Emotion Classification Training (Stage 3)
 
