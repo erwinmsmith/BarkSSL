@@ -371,6 +371,8 @@ class CanineHuBERTPretraining:
             Dictionary with loss and metrics
         """
         waveform = batch['waveform']
+        device = next(self.encoder.parameters()).device
+
         # Handle batch of variable-length waveforms (list format)
         if isinstance(waveform, list):
             # Find max length
@@ -384,9 +386,9 @@ class CanineHuBERTPretraining:
                     w_padded = w[:max_len]
                 padded.append(w_padded)
             waveform = np.vstack(padded)
-            waveform = torch.from_numpy(waveform).float()
+            waveform = torch.from_numpy(waveform).float().to(device)
         elif isinstance(waveform, np.ndarray):
-            waveform = torch.from_numpy(waveform).float()
+            waveform = torch.from_numpy(waveform).float().to(device)
 
         pseudo_labels = batch.get('pseudo_labels')
 
