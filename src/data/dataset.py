@@ -54,29 +54,36 @@ class BaseAudioDataset(Dataset):
             Tuple of (waveform, sample_rate)
         """
         try:
-            # Try torchaudio first (faster for large files)
-            waveform, sr = torchaudio.load(filepath)
-            waveform = waveform.squeeze().numpy()
-
-            # Resample if necessary
-            if sr != self.target_sr:
-                waveform = librosa.resample(
-                    waveform,
-                    orig_sr=sr,
-                    target_sr=self.target_sr
-                )
-
-            return waveform, self.target_sr
+            # Try librosa first for reliable mono conversion
+            waveform, sr = librosa.load(
+                filepath,
+                sr=self.target_sr,
+                mono=True
+            )
+            return waveform, sr
 
         except Exception as e:
-            # Fallback to librosa
+            # Fallback to torchaudio
             try:
-                waveform, sr = librosa.load(
-                    filepath,
-                    sr=self.target_sr,
-                    mono=True
-                )
-                return waveform, sr
+                waveform, sr = torchaudio.load(filepath)
+                # Convert to numpy and handle multi-channel
+                waveform = waveform.numpy()
+                if waveform.ndim > 1:
+                    # Average channels to mono
+                    waveform = waveform.mean(axis=0)
+                else:
+                    waveform = waveform.squeeze()
+
+                # Resample if necessary
+                if sr != self.target_sr:
+                    waveform = librosa.resample(
+                        waveform,
+                        orig_sr=sr,
+                        target_sr=self.target_sr
+                    )
+
+                return waveform, self.target_sr
+
             except Exception as e2:
                 raise RuntimeError(f"Failed to load audio {filepath}: {e2}")
 
