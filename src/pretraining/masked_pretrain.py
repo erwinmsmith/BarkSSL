@@ -211,7 +211,9 @@ class MaskedPretraining:
         )
 
         # Get predictions for masked positions
-        logits = self.encoder.prediction_head(masked_hidden)
+        # Handle both DDP-wrapped and unwrapped models
+        encoder = self.encoder.module if hasattr(self.encoder, 'module') else self.encoder
+        logits = encoder.prediction_head(masked_hidden)
 
         # Compute loss
         loss = F.cross_entropy(
