@@ -101,6 +101,7 @@ Key parameters:
 - `--mask-prob`: Mask probability (default: 0.075)
 - `--lr`: Learning rate (default: 0.0001)
 - `--num-workers`: Data loading workers per GPU
+- `--max-length`: Max audio length in seconds (default: 10s, prevents OOM)
 
 ### 3. Downstream Emotion Classification Training (Stage 3)
 
