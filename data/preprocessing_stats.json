@@ -1,0 +1,29 @@
+{
+  "target_sr": 16000,
+  "target_duration": 4.0,
+  "target_samples": 64000.0,
+  "cnn_stride": 40,
+  "emotion_stats": {
+    "total": 4229,
+    "success": 4229,
+    "failed": 0,
+    "sample_rates": {
+      "16000": 4229
+    },
+    "durations": {},
+    "channels": {}
+  },
+  "dogspeak_stats": {
+    "total": 77202,
+    "success": 77197,
+    "failed": 5,
+    "sample_rates": {
+      "16000": 77197
+    },
+    "durations": {
+      "min": 0.064,
+      "max": 101.696,
+      "avg": 1.5462551232560946
+    }
+  }
+}
