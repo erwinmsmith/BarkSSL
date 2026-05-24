@@ -218,7 +218,11 @@ def train_worker(rank, world_size, args, output_dir, checkpoint_dir):
 
     # Wrap for distributed
     if world_size > 1:
-        encoder = torch.nn.parallel.DistributedDataParallel(encoder, device_ids=[rank])
+        encoder = torch.nn.parallel.DistributedDataParallel(
+            encoder,
+            device_ids=[rank],
+            find_unused_parameters=True,
+        )
 
     if is_main:
         num_params = sum(p.numel() for p in encoder.parameters())
