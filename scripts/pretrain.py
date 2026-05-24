@@ -101,15 +101,18 @@ def parse_args():
 
 
 def collate_variable_length(batch, max_samples=None):
-    """Collate function for variable-length DogSpeak samples with length limit."""
-    max_len = max_samples or max(len(b['waveform']) for b in batch)
+    """Collate function for variable-length DogSpeak samples with length limit.
 
+    Uses random truncation to preserve data diversity.
+    """
+    import random
     waveforms = []
     for b in batch:
         w = b['waveform']
-        # Truncate if too long
-        if len(w) > max_len:
-            w = w[:max_len]
+        if max_samples and len(w) > max_samples:
+            # Random truncation - sample a segment of max_samples
+            start = random.randint(0, len(w) - max_samples)
+            w = w[start:start + max_samples]
         waveforms.append(w)
 
     return {
