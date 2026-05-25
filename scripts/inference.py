@@ -68,8 +68,50 @@ def main():
     print(f"Loading model from: {args.model}")
     checkpoint = torch.load(args.model, map_location=device)
 
-    # Create encoder with config from checkpoint
-    encoder_config = checkpoint.get('config', {}) or {}
+    # Try to extract encoder config from checkpoint
+    encoder_config = checkpoint.get('config', None)
+
+    # If config exists but doesn't have correct values, try to infer from state_dict
+    model_state = checkpoint.get('model_state_dict', {})
+
+    if isinstance(model_state, dict):
+        actual_encoder = model_state.get('encoder', model_state)
+
+        # Infer from first encoder layer
+        if 'cnn_encoder.conv_layers.0.weight' in actual_encoder:
+            hidden_dim = actual_encoder['cnn_encoder.conv_layers.0.weight'].shape[0]
+
+            # Count transformer layers
+            num_layers = 0
+            while f'transformer_encoder.layers.{num_layers}.self_attn.in_proj_weight' in actual_encoder:
+                num_layers += 1
+
+            num_heads = hidden_dim // 64  # 2 for 128, 6 for 384
+
+            # Infer kmeans_k from prediction head
+            kmeans_k = 100
+            for k in actual_encoder.keys():
+                if 'prediction_head.2.weight' in k:
+                    kmeans_k = actual_encoder[k].shape[0]
+                    break
+
+            print(f"Inferred from weights: hidden_dim={hidden_dim}, num_layers={num_layers}, num_heads={num_heads}, kmeans_k={kmeans_k}")
+
+            # Use inferred config if it differs from stored config
+            if encoder_config is None or encoder_config.get('hidden_dim', 384) != hidden_dim:
+                encoder_config = {
+                    'scale': 'tiny' if hidden_dim == 128 else 'small',
+                    'hidden_dim': hidden_dim,
+                    'num_layers': num_layers,
+                    'num_heads': num_heads,
+                    'kmeans_k': kmeans_k,
+                }
+                print(f"Using inferred config: {encoder_config}")
+
+    if encoder_config is None:
+        encoder_config = {'scale': 'small', 'hidden_dim': 384, 'num_layers': 6, 'num_heads': 6, 'kmeans_k': 100}
+
+    print(f"Final encoder config: {encoder_config}")
 
     encoder = CanineEncoder(
         scale=encoder_config.get('scale', 'small'),
@@ -81,19 +123,15 @@ def main():
 
     # Load encoder weights
     encoder_state = None
-    if 'encoder_state_dict' in checkpoint:
-        encoder_state = checkpoint['encoder_state_dict']
-    elif 'model_state_dict' in checkpoint:
-        model_state = checkpoint['model_state_dict']
-        if isinstance(model_state, dict) and 'encoder' in model_state:
-            encoder_state = model_state['encoder']
-        elif isinstance(model_state, dict):
-            encoder_state = model_state
-        else:
-            encoder_state = model_state
+
+    if isinstance(model_state, dict):
+        encoder_state = model_state.get('encoder', model_state)
+    else:
+        encoder_state = model_state
 
     if encoder_state:
         encoder.load_state_dict(encoder_state)
+        print("Encoder loaded successfully")
 
     encoder.to(device)
 
