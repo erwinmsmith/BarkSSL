@@ -197,7 +197,8 @@ def train_worker(rank, world_size, args, output_dir, checkpoint_dir):
         n_mels=80,
     )
 
-    # Only main process fits k-means (others wait)
+    # Only main process fits k-means (others poll until file exists)
+    acoustic_unit_path = output_dir / 'acoustic_unit.pt'
     if is_main:
         logger.info("Fitting k-means on DogSpeak data...")
         dataset_for_kmeans = PreprocessedDogSpeakDataset(
@@ -207,14 +208,14 @@ def train_worker(rank, world_size, args, output_dir, checkpoint_dir):
         )
         acoustic_unit.fit(dataset_for_kmeans)
         logger.info(f"k-means fitted with {args.kmeans_k} clusters")
-        acoustic_unit.save(output_dir / 'acoustic_unit.pt')
+        acoustic_unit.save(acoustic_unit_path)
     else:
-        # Load from file on non-main ranks
-        acoustic_unit = AcousticUnitDiscovery.load(str(output_dir / 'acoustic_unit.pt'))
+        # Wait for main process to save the file
+        while not acoustic_unit_path.exists():
+            import time
+            time.sleep(1)
 
-    # Sync across processes
-    if world_size > 1:
-        dist.barrier()
+    acoustic_unit = AcousticUnitDiscovery.load(str(acoustic_unit_path))
 
     # ============ Stage 2: Masked Pretraining ============
     if is_main:
