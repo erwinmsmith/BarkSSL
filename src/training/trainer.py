@@ -146,19 +146,29 @@ class Trainer:
             # Metrics
             batch_size = batch['labels'].size(0) if 'labels' in batch else len(batch)
             total_loss += train_loss.item() if isinstance(train_loss, torch.Tensor) else train_loss
+
+            # Get accuracy from output if available
+            if 'accuracy' in output:
+                train_acc = output['accuracy'].item() if isinstance(output['accuracy'], torch.Tensor) else output['accuracy']
+            else:
+                train_acc = 0.0
+
             total_samples += batch_size
 
             # Update progress bar
             avg_loss = total_loss / max(total_samples, 1)
-            pbar.set_postfix({'loss': f'{avg_loss:.4f}'})
+            pbar.set_postfix({'loss': f'{avg_loss:.4f}', 'acc': f'{train_acc:.4f}'})
 
             # Log to TensorBoard
             if self.tb_logger:
                 self.tb_logger.log_scalar('loss/train', avg_loss, self.global_step)
+                if train_acc > 0:
+                    self.tb_logger.log_scalar('acc/train', train_acc, self.global_step)
 
             self.global_step += 1
 
         metrics['loss'] = total_loss / max(total_samples, 1)
+        metrics['accuracy'] = train_acc if 'accuracy' in locals() else 0.0
 
         return metrics
 

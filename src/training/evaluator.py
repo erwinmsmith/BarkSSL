@@ -107,6 +107,12 @@ class Evaluator:
         # Compute metrics
         metrics = self.compute_metrics(all_predictions, all_labels)
 
+        # Compute loss using cross entropy on logits
+        logits_tensor = torch.FloatTensor(all_logits)
+        labels_tensor = torch.LongTensor(all_labels)
+        loss = nn.CrossEntropyLoss()(logits_tensor, labels_tensor).item()
+        metrics['loss'] = loss
+
         return metrics
 
     def compute_metrics(
