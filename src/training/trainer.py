@@ -118,6 +118,10 @@ class Trainer:
             self.optimizer.zero_grad()
             output = self.model.train_step(batch)
 
+            # Debug: check output keys
+            if self.global_step == 0:
+                print(f"DEBUG output keys: {output.keys()}")
+
             # Compute loss
             if self.loss_fn:
                 loss = self.loss_fn(**{k: output[k] for k in ['logits', 'embedding', 'labels']
