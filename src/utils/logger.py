@@ -155,7 +155,7 @@ class TensorBoardLogger:
         if self._writer is None:
             try:
                 from torch.utils.tensorboard import SummaryWriter
-                self._writer = SummaryWriter(log_dir)
+                self._writer = SummaryWriter(self.log_dir)
             except ImportError:
                 print("Warning: TensorBoard not available. Install with: pip install tensorboard")
                 return None
