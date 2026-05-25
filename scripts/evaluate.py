@@ -148,12 +148,15 @@ def main():
             self.encoder = encoder
             self.classifier = classifier
 
-        def eval_step(self, batch):
+        def forward(self, batch):
             output = self.classifier(batch['waveforms'])
             return {
                 'logits': output['logits'],
                 'labels': batch['labels'],
             }
+
+        def eval_step(self, batch):
+            return self.forward(batch)
 
     model = ModelWrapper(encoder, classifier)
     model.to(device)
