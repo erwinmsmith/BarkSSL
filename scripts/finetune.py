@@ -76,7 +76,8 @@ def parse_args():
 
 def collate_fixed_length(batch):
     """Collate function for fixed-length emotion samples."""
-    waveforms = torch.FloatTensor([b['waveform'] for b in batch])
+    import numpy as np
+    waveforms = torch.FloatTensor(np.array([b['waveform'] for b in batch]))
     labels = torch.LongTensor([b['label_id'] for b in batch])
 
     return {
@@ -116,6 +117,10 @@ class EmotionFinetuneModel(nn.Module):
             'logits': logits,
             'labels': labels,
         }
+
+    def eval_step(self, batch):
+        """Alias for train_step during evaluation."""
+        return self.train_step(batch)
 
     def state_dict(self):
         """Return combined state dict."""
