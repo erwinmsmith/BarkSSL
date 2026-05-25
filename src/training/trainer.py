@@ -104,6 +104,8 @@ class Trainer:
         """
         self.model.train()
         total_loss = 0.0
+        total_acc = 0.0
+        total_correct = 0
         total_samples = 0
         metrics = {}
 
@@ -117,10 +119,6 @@ class Trainer:
             # Forward pass
             self.optimizer.zero_grad()
             output = self.model.train_step(batch)
-
-            # Debug: check output keys
-            if self.global_step == 0:
-                print(f"DEBUG output keys: {output.keys()}")
 
             # Compute loss
             if self.loss_fn:
@@ -153,26 +151,25 @@ class Trainer:
 
             # Get accuracy from output if available
             if 'accuracy' in output:
-                train_acc = output['accuracy'].item() if isinstance(output['accuracy'], torch.Tensor) else output['accuracy']
-            else:
-                train_acc = 0.0
-
+                batch_acc = output['accuracy'].item() if isinstance(output['accuracy'], torch.Tensor) else output['accuracy']
+                total_acc += batch_acc * batch_size
+                total_correct += int(batch_acc * batch_size)
             total_samples += batch_size
 
             # Update progress bar
             avg_loss = total_loss / max(total_samples, 1)
-            pbar.set_postfix({'loss': f'{avg_loss:.4f}', 'acc': f'{train_acc:.4f}'})
+            avg_acc = total_acc / max(total_samples, 1)
+            pbar.set_postfix({'loss': f'{avg_loss:.4f}', 'acc': f'{avg_acc:.4f}'})
 
             # Log to TensorBoard
             if self.tb_logger:
                 self.tb_logger.log_scalar('loss/train', avg_loss, self.global_step)
-                if train_acc > 0:
-                    self.tb_logger.log_scalar('acc/train', train_acc, self.global_step)
+                self.tb_logger.log_scalar('acc/train', avg_acc, self.global_step)
 
             self.global_step += 1
 
         metrics['loss'] = total_loss / max(total_samples, 1)
-        metrics['accuracy'] = train_acc if 'accuracy' in locals() else 0.0
+        metrics['accuracy'] = total_acc / max(total_samples, 1)
 
         return metrics
 
