@@ -362,6 +362,14 @@ class CanineHuBERTPretraining:
         """Set eval mode."""
         return self.train(False)
 
+    def state_dict(self):
+        """Return encoder state dict."""
+        return self.encoder.state_dict()
+
+    def load_state_dict(self, state_dict):
+        """Load encoder state dict."""
+        self.encoder.load_state_dict(state_dict)
+
     def train_step(self, batch: Dict[str, Any]) -> Dict[str, Any]:
         """
         Single training step.
