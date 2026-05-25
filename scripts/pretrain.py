@@ -26,13 +26,8 @@ from src.pretraining.acoustic_unit import AcousticUnitDiscovery, PseudoLabelGene
 from src.pretraining.masked_pretrain import CanineHuBERTPretraining
 from src.data.preprocessed_dataset import PreprocessedDogSpeakDataset
 from src.training.trainer import PretrainingTrainer
-from src.utils.logger import Logger
+from src.utils.logger import Logger, TensorBoardLogger
 from src.utils.device import get_device
-try:
-    from torch.utils.tensorboard import SummaryWriter
-    HAS_TENSORBOARD = True
-except ImportError:
-    HAS_TENSORBOARD = False
 
 
 def parse_args():
@@ -287,11 +282,9 @@ def train_worker(rank, world_size, args, output_dir, checkpoint_dir):
         logger.info(f"Steps per epoch: {len(dataloader)}")
 
     # TensorBoard writer (only on main process)
-    tb_writer = SummaryWriter(log_dir=str(output_dir / 'tensorboard')) if is_main and HAS_TENSORBOARD else None
-    if is_main and tb_writer:
+    tb_logger = TensorBoardLogger(str(output_dir / 'tensorboard')) if is_main else None
+    if is_main:
         logger.info(f"TensorBoard logging enabled: {output_dir / 'tensorboard'}")
-    elif is_main:
-        logger.info("TensorBoard not available, using console logging only")
 
     # Create trainer
     config = {
@@ -308,7 +301,7 @@ def train_worker(rank, world_size, args, output_dir, checkpoint_dir):
         device=device,
         config=config,
         logger=logger,
-        tb_logger=tb_writer,
+        tb_logger=tb_logger,
     )
 
     # Training loop
@@ -448,12 +441,9 @@ def main():
         logger.info(f"Max audio length: {args.max_length}s")
         logger.info(f"Steps per epoch: {len(dataloader)}")
 
-        # TensorBoard writer
-        tb_writer = SummaryWriter(log_dir=str(output_dir / 'tensorboard')) if HAS_TENSORBOARD else None
-        if tb_writer:
-            logger.info(f"TensorBoard logging enabled: {output_dir / 'tensorboard'}")
-        else:
-            logger.info("TensorBoard not available, using console logging only")
+        # TensorBoard logger
+        tb_logger = TensorBoardLogger(str(output_dir / 'tensorboard'))
+        logger.info(f"TensorBoard logging enabled: {output_dir / 'tensorboard'}")
 
         config = {
             'learning_rate': args.lr,
@@ -469,7 +459,7 @@ def main():
             device=device,
             config=config,
             logger=logger,
-            tb_logger=tb_writer,
+            tb_logger=tb_logger,
         )
 
         if args.resume:
