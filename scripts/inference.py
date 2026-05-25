@@ -68,36 +68,32 @@ def main():
     print(f"Loading model from: {args.model}")
     checkpoint = torch.load(args.model, map_location=device)
 
-    # Determine config
-    if 'config' in checkpoint:
-        config = checkpoint['config']
-    else:
-        config = {
-            'scale': 'small',
-            'hidden_dim': 384,
-            'num_layers': 6,
-            'num_heads': 6,
-            'kmeans_k': 100,
-        }
+    # Create encoder with config from checkpoint
+    encoder_config = checkpoint.get('config', {}) or {}
 
-    # Create encoder
     encoder = CanineEncoder(
-        scale=config.get('scale', 'small'),
-        hidden_dim=config.get('hidden_dim', 384),
-        num_layers=config.get('num_layers', 6),
-        num_heads=config.get('num_heads', 6),
-        kmeans_k=config.get('kmeans_k', 100),
+        scale=encoder_config.get('scale', 'small'),
+        hidden_dim=encoder_config.get('hidden_dim', 384),
+        num_layers=encoder_config.get('num_layers', 6),
+        num_heads=encoder_config.get('num_heads', 6),
+        kmeans_k=encoder_config.get('kmeans_k', 100),
     )
 
     # Load encoder weights
+    encoder_state = None
     if 'encoder_state_dict' in checkpoint:
-        encoder.load_state_dict(checkpoint['encoder_state_dict'])
+        encoder_state = checkpoint['encoder_state_dict']
     elif 'model_state_dict' in checkpoint:
-        state_dict = checkpoint['model_state_dict']
-        if 'encoder' in state_dict:
-            encoder.load_state_dict(state_dict['encoder'])
+        model_state = checkpoint['model_state_dict']
+        if isinstance(model_state, dict) and 'encoder' in model_state:
+            encoder_state = model_state['encoder']
+        elif isinstance(model_state, dict):
+            encoder_state = model_state
         else:
-            encoder.load_state_dict(state_dict)
+            encoder_state = model_state
+
+    if encoder_state:
+        encoder.load_state_dict(encoder_state)
 
     encoder.to(device)
 
