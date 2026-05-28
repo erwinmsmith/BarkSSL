@@ -27,6 +27,13 @@ def parse_args():
     parser.add_argument('--data-dir', type=str,
                        default='data/emotion_preprocessed',
                        help='Emotion preprocessed data directory')
+    parser.add_argument('--split', type=str, default='all',
+                       choices=['all', 'train', 'val', 'test'],
+                       help='Which split to evaluate')
+    parser.add_argument('--train-ratio', type=float, default=0.8,
+                       help='Training set ratio (for split)')
+    parser.add_argument('--val-ratio', type=float, default=0.1,
+                       help='Validation set ratio (for split)')
     parser.add_argument('--num-classes', type=int, default=5,
                        help='Number of classes')
     parser.add_argument('--batch-size', type=int, default=32,
@@ -162,16 +169,41 @@ def main():
     model.to(device)
 
     # Load dataset
-    print(f"Loading test dataset from: {args.data_dir}")
+    print(f"Loading dataset from: {args.data_dir}")
     dataset = PreprocessedEmotionDataset(
         root_dir=args.data_dir,
         target_sr=16000,
         target_duration=4.0,
     )
 
+    # Split dataset if not evaluating all
+    if args.split != 'all':
+        total = len(dataset)
+        train_size = int(total * args.train_ratio)
+        val_size = int(total * args.val_ratio)
+        test_size = total - train_size - val_size
+
+        train_dataset, val_dataset, test_dataset = torch.utils.data.random_split(
+            dataset,
+            [train_size, val_size, test_size],
+            generator=torch.Generator().manual_seed(42),
+        )
+
+        if args.split == 'train':
+            eval_dataset = train_dataset
+        elif args.split == 'val':
+            eval_dataset = val_dataset
+        else:
+            eval_dataset = test_dataset
+
+        print(f"Using {args.split} split: {len(eval_dataset)} samples")
+    else:
+        eval_dataset = dataset
+        print(f"Using all data: {len(dataset)} samples")
+
     # Create dataloader
     test_loader = torch.utils.data.DataLoader(
-        dataset,
+        eval_dataset,
         batch_size=args.batch_size,
         shuffle=False,
         num_workers=args.num_workers,
@@ -179,7 +211,7 @@ def main():
         pin_memory=True,
     )
 
-    print(f"Test set size: {len(dataset)}")
+    print(f"Evaluating {len(eval_dataset)} samples")
 
     # Create evaluator
     evaluator = Evaluator(
