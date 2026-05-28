@@ -48,6 +48,78 @@ torchrun --nproc_per_node=4 scripts/pretrain.py \
     --output-dir outputs/pretrain
 ```
 
+### Different Model Scales
+
+#### Tiny Model (~1M parameters)
+```bash
+torchrun --nproc_per_node=4 scripts/pretrain.py \
+    --scale tiny \
+    --hidden-dim 128 \
+    --num-layers 2 \
+    --num-heads 2 \
+    --kmeans-k 50 \
+    --batch-size 64 \
+    --epochs 100 \
+    --max-length 10 \
+    --output-dir outputs/pretrain_tiny
+```
+
+#### Small Model (~12M parameters)
+```bash
+torchrun --nproc_per_node=4 scripts/pretrain.py \
+    --scale small \
+    --hidden-dim 384 \
+    --num-layers 6 \
+    --num-heads 6 \
+    --kmeans-k 100 \
+    --batch-size 64 \
+    --epochs 100 \
+    --max-length 10 \
+    --output-dir outputs/pretrain_small
+```
+
+#### Base Model (~47M parameters)
+```bash
+torchrun --nproc_per_node=4 scripts/pretrain.py \
+    --scale base \
+    --hidden-dim 768 \
+    --num-layers 12 \
+    --num-heads 12 \
+    --kmeans-k 100 \
+    --batch-size 32 \
+    --epochs 100 \
+    --max-length 10 \
+    --output-dir outputs/pretrain_base
+```
+
+#### Large Model (~95M parameters)
+```bash
+torchrun --nproc_per_node=4 scripts/pretrain.py \
+    --scale large \
+    --hidden-dim 1024 \
+    --num-layers 24 \
+    --num-heads 16 \
+    --kmeans-k 100 \
+    --batch-size 16 \
+    --epochs 100 \
+    --max-length 10 \
+    --output-dir outputs/pretrain_large
+```
+
+### Extended Pretraining (Stronger Representations)
+
+For better downstream performance, increase epochs:
+
+```bash
+# 300 epochs pretraining
+torchrun --nproc_per_node=4 scripts/pretrain.py \
+    --scale small \
+    --epochs 300 \
+    --kmeans-k 100 \
+    --batch-size 64 \
+    --output-dir outputs/pretrain_300ep
+```
+
 **Key Parameters:**
 
 | Parameter | Default | Description |
