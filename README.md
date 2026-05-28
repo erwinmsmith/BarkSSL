@@ -151,7 +151,7 @@ python3 scripts/finetune.py \
 |-----------|---------|-------------|
 | `--encoder` | required | Path to pretrained encoder |
 | `--epochs` | 30 | Number of training epochs |
-| `--batch-size` | 32 | Batch size |
+| `--batch-size` | 16 | Batch size |
 | `--lr` | 1e-4 | Learning rate |
 | `--pooling` | attentive | Pooling type (mean/max/attentive) |
 
@@ -161,7 +161,7 @@ python3 scripts/finetune.py \
 python3 scripts/evaluate.py \
     --model outputs/finetune/checkpoints/best_model.pt \
     --data-dir data/emotion_preprocessed \
-    --batch-size 32
+    --batch-size 16
 ```
 
 Output: Accuracy, F1, Precision, Recall, Confusion Matrix
